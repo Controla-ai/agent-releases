@@ -38,13 +38,19 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install AWS CLI
-        run: sudo apt-get update && sudo apt-get install -y awscli
+        uses: unfor19/install-aws-cli-action@f5b46b7f32cf5e7ebd652656c5036bf83dd1e60c # v1
+        with:
+          version: 2                         # default
+          verbose: false                     # default
+          arch: amd64                        # allowed values: amd64, x86, x64, arm, arm64
 
       - name: Upload to UpCloud
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.UPCLOUD_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.UPCLOUD_SECRET_ACCESS_KEY }}
           AWS_EC2_METADATA_DISABLED: "true"
+          AWS_REQUEST_CHECKSUM_CALCULATION: "when_required"
+          AWS_RESPONSE_CHECKSUM_VALIDATION: "when_required"
           ENDPOINT: https://0r74q.upcloudobjects.com
           BUCKET: releases-bucket
         run: |
