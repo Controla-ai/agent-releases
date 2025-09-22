@@ -1,0 +1,53 @@
+# Assets will be available at e.g. https://0r74q.upcloudobjects.com/releases-bucket/0.0.29/Controla-Agent_0.0.29_x64_windows_microsoft-store.msi
+name: Mirror release assets to UpCloud Object Storage
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Upload given tagged release's assets to UpCloud"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve tag
+        id: vars
+        run: |
+          echo "TAG_NAME=${{ github.event.release.tag_name || github.event.inputs.tag_name }}" >> $GITHUB_ENV
+
+      - name: Ensure tag is set
+        run: |
+          set -euo pipefail
+          test -n "$TAG_NAME" || { echo "TAG_NAME is empty"; exit 1; }
+          echo "Using tag: $TAG_NAME"
+
+      - name: Download release assets
+        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05 # v1
+        with:
+          repository: ${{ github.repository }}
+          tag: ${{ env.TAG_NAME }}
+          fileName: "*"
+          out-file-path: "dist"
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install AWS CLI
+        run: sudo apt-get update && sudo apt-get install -y awscli
+
+      - name: Upload to UpCloud
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.UPCLOUD_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.UPCLOUD_SECRET_ACCESS_KEY }}
+          AWS_EC2_METADATA_DISABLED: "true"
+          ENDPOINT: https://0r74q.upcloudobjects.com
+          BUCKET: releases-bucket
+        run: |
+          aws s3 cp dist/ "s3://$BUCKET/$TAG_NAME/" \
+            --endpoint-url "$ENDPOINT" --recursive \
+            --cache-control "public,max-age=31536000,immutable"
